@@ -2,7 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import router from "./Routes/router.js";
-import appError from "./error-handling/error404.js";
+import {appError} from "./error-handling/error404.js";
+import cookieParser from "cookie-parser";
 dotenv.config();
 
 //Connect to database
@@ -16,6 +17,7 @@ const app = express();
 
 //Middlewares
 app.use(express.json());
+app.use(cookieParser());
 app.use('/social/media', router);
 
 //Error middleware

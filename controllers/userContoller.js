@@ -1,11 +1,10 @@
-import appError from "../error-handling/error404.js";
+import { generateToken,  saveRefreshToken} from "../token/token.js";
 import User from "../schema/userSchema.js";
 import uploadToCloudinary from "../cloudinary/cloudinaryHelpers.js";
-
-export const registerUser = async(req, res, next) => {
-  try{
-
-    let {username, email, mobile, password} = req.body;
+import { asyncHandler, appError } from "../error-handling/error404.js";
+import jwt from "jsonwebtoken";
+export const registerUser = asyncHandler(async (req, res, next) => {
+  let {username, email, mobile, password} = req.body;
 
     //Check if username is present
     if(!username) {
@@ -50,7 +49,7 @@ export const registerUser = async(req, res, next) => {
     //Regular Expression
     const regex3 = /^[^\s]+[^A-Za-z0-9\s]{1,3}[\d]+$/;  //Password must have an alphanumeric beginning, maximum of three special characters at the middle and one or more numbers at the end.
     if(!regex3.test(password)) {
-      return next(new appError("The password is not strong enough"), 400);
+      return next(new appError("The password must have one special cahracter at the middle and numbers at the end"), 400);
     }
 
     const user = await User.findOne({email});
@@ -77,8 +76,85 @@ export const registerUser = async(req, res, next) => {
       message: 'User registered successfully',
       newUser
     });
+});
 
-  } catch(error) {
-    next(error);
+export const loginUser = asyncHandler(async (req, res, next) => {
+  const {username, password} = req.body;
+
+  //Check if user exists
+  const user = await User.findOne({username}).select("+password");
+  if(!user) {
+    return next(new appError("The username is not incorrect", 401));
   }
-}
+
+  //Check if password is correct
+  const check = await user.correctPassword(password, user.password);
+  if(!check) {
+    return next(new appError("The password is not correct", 401));
+  }
+
+  //Generate tokens if password/username is correct
+  const {accessToken, refreshToken} = generateToken(user);
+
+  //Save refresh token in a cookie
+  saveRefreshToken(res, refreshToken);
+
+  res.status(200).json({
+    message: "Login Successful",
+    accessToken
+  })
+});
+
+export const refreshToken = asyncHandler(async(req, res, next) => {
+  const token = req.cookies.refreshToken;
+  
+  if(!token) {
+    return next(new appError("No refresh token provided", 400));
+  }
+
+  //Decode refresh token
+  jwt.verify(token, process.env.refresh_Token, (err, decoded) => {
+    if(err) {
+      return next(new appError("Invalid refresh token provided", 403))
+    }
+
+    //Generate new access token
+    const {accessToken, refreshToken} = generateToken(decoded);
+
+    //Save refresh token in cookie
+    saveRefreshToken(res, refreshToken);
+
+    res.status(200).json(accessToken);
+  })
+});
+
+export const logOut = asyncHandler(async(req, res, next) => {
+  
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "strict",
+    path: "/social/media/refresh"
+  });
+
+  res.status(200).json({
+    message: "Logout Successful"
+  });
+});
+
+export const allUsers = asyncHandler(async(req, res, next) => {
+  //Get current user details
+  const user = req.userInfo;
+  //Check if it is a registered user
+  const checkUser = await User.findById(user.id);
+  if(!checkUser){
+    return next(new appError("This is not a registered user", 401));
+  }
+
+  //Get all users
+  const allUser = await User.find();
+
+  res.status(200).json({
+    allUser
+  })
+});

@@ -1,8 +1,8 @@
 import express from "express";
-import { registerUser } from "../controllers/userContoller.js";
+import { registerUser, loginUser, allUsers, refreshToken } from "../controllers/userContoller.js";
 import fs from "fs";
 import path from "path";
-
+import { protect } from "../Middleware/protect.js";
 
 import multer from "multer";
 
@@ -40,5 +40,8 @@ const upload = multer({
 });
 
 router.post('/register', upload.single('image'), registerUser);
+router.post('/login', loginUser);
+router.get('/allusers', protect , allUsers);
+router.get('/refresh', refreshToken);
 
 export default router;
