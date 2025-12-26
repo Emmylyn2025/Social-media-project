@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 export function generateToken(user) {
   //Access token
   const accessToken = jwt.sign({
-    id: user._id,
+    userId: user._id,
     profileImageUrl: user.profileImageUrl,
     username: user.username,
     mobile: user.mobile
@@ -12,7 +12,7 @@ export function generateToken(user) {
 
   //Refresh token
   const refreshToken = jwt.sign({
-    id: user._id,
+    userId: user._id,
     profileImageUrl: user.profileImageUrl,
     username: user.username,
     mobile: user.mobile

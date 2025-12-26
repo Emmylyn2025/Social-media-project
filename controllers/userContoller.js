@@ -3,6 +3,7 @@ import User from "../schema/userSchema.js";
 import uploadToCloudinary from "../cloudinary/cloudinaryHelpers.js";
 import { asyncHandler, appError } from "../error-handling/error404.js";
 import jwt from "jsonwebtoken";
+
 export const registerUser = asyncHandler(async (req, res, next) => {
   let {username, email, mobile, password} = req.body;
 
@@ -146,7 +147,7 @@ export const allUsers = asyncHandler(async(req, res, next) => {
   //Get current user details
   const user = req.userInfo;
   //Check if it is a registered user
-  const checkUser = await User.findById(user.id);
+  const checkUser = await User.findById(user.userId);
   if(!checkUser){
     return next(new appError("This is not a registered user", 401));
   }

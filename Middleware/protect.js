@@ -20,7 +20,7 @@ export const protect = (req, res, next) => {
     token,
     process.env.access_Token
   );
-
+  
   req.userInfo = decoded;
   next();
 };

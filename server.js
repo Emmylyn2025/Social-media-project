@@ -20,9 +20,6 @@ app.use(express.json());
 app.use(cookieParser());
 app.use('/social/media', router);
 
-//Error middleware
-app.use(appError);
-
 //Error handling middleware
 app.use((req, res, next) => {
   res.status(404).json({
@@ -30,8 +27,13 @@ app.use((req, res, next) => {
   });
 });
 
+
+//Error middleware
+app.use(appError);
+
 //Global error handler
 app.use((err, req, res, next) => {
+  console.log(err);
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     message: err.message

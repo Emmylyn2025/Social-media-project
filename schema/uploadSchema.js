@@ -14,11 +14,9 @@ const commentSchema = new mongoose.Schema({
 const uploadSchema = new mongoose.Schema({
   fileSecureUrl: {
     type: String,
-    required: true
   },
   filePublicId: {
     type: String,
-    required: true
   },
   fileTitle: {
     type: String,
