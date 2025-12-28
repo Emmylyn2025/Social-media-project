@@ -60,18 +60,27 @@ export const registerUser = asyncHandler(async (req, res, next) => {
       return next(new appError("This is a registered user", 400));
     }
 
-    //Upload profile images to cloudinary
-    const {fileSecureUrl, filePublicId} = await uploadToCloudinary(req.file.path);
+    let filePublicId = null;
+    let fileSecureUrl = null;
 
-    //If user does not exist create a new user
-    const newUser = await User.create({
-      profileImageUrl: fileSecureUrl,
-      profileImagePublicId: filePublicId,
-      username: username.trim(),
-      email: email.trim().toLowerCase(),
-      mobile: Number(mobile),
-      password: password.trim()
-    });
+    //Upload profile images to cloudinary if image is uploaded
+    if(req.file) {
+      const upload = await uploadToCloudinary(req.file.path);
+
+      filePublicId = upload.filePublicId;
+      fileSecureUrl = upload.fileSecureUrl
+    } 
+      
+      //Create new user
+      const newUser = await User.create({
+        profileImageUrl: fileSecureUrl,
+        profileImagePublicId: filePublicId,
+        username: username.trim(),
+        email: email.trim().toLowerCase(),
+        mobile: Number(mobile),
+        password: password.trim()
+      });
+
 
     res.status(201).json({
       message: 'User registered successfully',

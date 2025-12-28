@@ -51,23 +51,166 @@ export const postController = asyncHandler(async(req, res, next) => {
   //Get file title from frontend
   const {fileContent} = req.body;
 
+  let fileSecureUrl = null;
+  let filePublicId = null;
+
   if(!fileContent) {
     return next(new appError("Post title is required", 400));
   }
 
   //Upload file url and public id to clodinary, if file is uploaded
-  const {fileSecureUrl, filePublicId} = await uploadToCloudinary(req.file.path);
-  
-  //Save to database
-  const newPost = await upload.create({
-    fileSecureUrl,
-    filePublicId,
-    fileTitle: fileContent,
-    uploadedBy: user.userId
-  });
+    if(req.file){
+      const uploadFile = await uploadToCloudinary(req.file.path);
+
+      fileSecureUrl = uploadFile.fileSecureUrl;
+      filePublicId = uploadFile.filePublicId
+    }
+
+    //Create new post
+    const newPost = await upload.create({
+      fileSecureUrl,
+      filePublicId,
+      fileTitle: fileContent,
+      uploadedBy: user.userId
+    })
 
   res.status(201).json({
     message: "New post created",
     newPost
   });
-})
+});
+
+export const makeComment = asyncHandler(async(req, res, next) => {
+  const user = req.userInfo;
+  //Check if user exists
+  const userCheck = await User.findById(user.userId);
+
+  if(!userCheck) {
+    return next(new appError('This is not a registered user', 401));
+  }
+
+  //Get post by id
+  const postId = req.params.id;
+  //Search for post
+  const post = await upload.findById(postId);
+
+  if(!post) {
+    return next(new appError('Post not found', 400));
+  }
+
+  //Make comment
+  const content = req.body.content;
+  post.comments.push({user: user.userId, content: content});
+
+  //New comment
+  await post.save();
+
+  res.status(201).json({
+    message: "Comment made successfully",
+    content
+  });
+});
+
+export const makeLike = asyncHandler(async(req, res, next) => {
+  const user = req.userInfo;
+  //Check if user exists
+  const userCheck = await User.findById(user.userId);
+
+  if(!userCheck) {
+    return next(new appError('This is not a registered user', 401));
+  }
+
+  //Post Id dynamic routing
+  const postId = req.params.id;
+  const post = await upload.findById(postId);
+
+  if(!post) {
+    return next(new appError("post not found", 404));
+  };
+
+  //Check if the user has disliked before
+  const checkDislike = post.dislike.find(person => person.user.toString() === user.userId);
+
+  //If the person has disliked, remove from the dislike array
+  if(checkDislike) {
+    post.dislike = post.dislike.filter(person => person.user !== user.userId);
+  } 
+
+  //Check if user has like before
+  const likeBefore = post.likes.find(person => person.user.toString() === user.userId);
+
+  //If the user has liked before return an error
+  if(likeBefore) {
+    return next(new appError("You have liked this post before", 400));
+  }
+  
+  post.likes.push({user: user.userId});
+
+  await post.save();
+
+  res.status(200).json({
+    message: "You liked the post"
+  });
+});
+
+export const makeDislike = asyncHandler(async(req, res, next) => {
+  const user = req.userInfo;
+  //Check if user exists
+  const userCheck = await User.findById(user.userId);
+
+  if(!userCheck) {
+    return next(new appError('This is not a registered user', 401));
+  }
+
+  //Post Id dynamic routing
+  const postId = req.params.id;
+  const post = await upload.findById(postId);
+
+  if(!post) {
+    return next(new appError("post not found", 404));
+  };
+
+  //Remove from like array if the user has liked before
+  const checkLike = post.likes.find(person => person.user.toString() === user.userId);
+  //Remove the person id from the likes array
+  if(checkLike) {
+    post.likes = post.likes.filter(person => person.user.toString() !== user.userId);
+  }
+
+  //Check if the user has disliked the post before
+  const dislikeBefore = post.dislike.find(person => person.user.toString() === user.userId);
+  //If disliked before, respond with an error
+  if(dislikeBefore) {
+    return next(new appError("You have disliked this post before", 400))
+  }
+
+  post.dislike.push({user: user.userId});
+
+  await post.save();
+
+  res.status(200).json({
+    message: "You disliked this post"
+  });
+});
+
+export const viewPost = asyncHandler(async(req, res, next) => {
+  const user = req.userInfo;
+  //Check if user exists
+  const userCheck = await User.findById(user.userId);
+
+  if(!userCheck) {
+    return next(new appError('This is not a registered user', 401));
+  }
+
+  //Get all post
+  const allPost = await upload.find({}).populate("uploadedBy", "username").populate("comments.user", "username");
+
+  if(!allPost) {
+    return next(new appError('Post not found', 400));
+  }
+
+  res.status(200).json({
+    message: "All post",
+    allPost
+  });
+});
