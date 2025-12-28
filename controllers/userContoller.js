@@ -168,3 +168,30 @@ export const allUsers = asyncHandler(async(req, res, next) => {
     allUser
   })
 });
+
+export const changePassword = asyncHandler(async(req, res, next) => {
+  const user = req.userInfo;
+  //Check if user exists
+  const userCheck = await User.findById(user.userId).select("+password");
+  
+  if(!userCheck) {
+    return next(new appError('This is not a registered user', 401));
+  }
+
+  const {password, newPassword} = req.body;
+
+  //Check if the old password is correct
+  const check = await userCheck.correctPassword(password, userCheck.password);
+  if(!check) {
+    return next(new appError("The password is not correct", 401));
+  }
+
+  //Make the user password be equal to the new password
+  userCheck.password = newPassword;
+
+  await userCheck.save();
+
+  res.status(200).json({
+    message: "Password changed successfully"
+  });
+});

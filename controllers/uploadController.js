@@ -80,6 +80,35 @@ export const postController = asyncHandler(async(req, res, next) => {
   });
 });
 
+export const deletePost = asyncHandler(async(req, res, next) => {
+  const user = req.userInfo;
+  //Check if user exists
+  const userCheck = await User.findById(user.userId);
+
+  if(!userCheck) {
+    return next(new appError('This is not a registered user', 401));
+  }
+
+  const postId = req.params.id;
+
+  const post = await upload.findById(postId);
+  
+  if(!post) {
+    return next(new appError("Post not found", 404));
+  }
+
+  if(post.uploadedBy.toString() !== user.userId) {
+    return next(new appError("You cannot delete this post", 401));
+  }
+
+  const deletePost = await upload.findByIdAndDelete(postId);
+
+  res.status(200).json({
+    message: "Post deleted successfully",
+    post: deletePost
+  });
+});
+
 export const makeComment = asyncHandler(async(req, res, next) => {
   const user = req.userInfo;
   //Check if user exists
@@ -108,6 +137,39 @@ export const makeComment = asyncHandler(async(req, res, next) => {
   res.status(201).json({
     message: "Comment made successfully",
     content
+  });
+});
+
+export const deleteComment = asyncHandler(async(req, res, next) => {
+  const user = req.userInfo;
+  //Check if user exists
+  const userCheck = await User.findById(user.userId);
+
+  if(!userCheck) {
+    return next(new appError('This is not a registered user', 401));
+  }
+
+  const {postId, commentId} = req.params;
+
+  //Get the post
+  const post = await upload.findById(postId);
+  if(!post) {
+    return next(new appError("Post not found", 404));
+  }
+
+  //Get the index of the comment
+  const index = post.comments.findIndex((comm) => comm._id.toString() === commentId);
+
+  if(post.comments[index].user.toString() !== user.userId) {
+    return next(new appError("You cannot delete this comment", 401));
+  }
+
+  post.comments = post.comments.filter(comm => comm._id.toString() !== commentId);
+
+  await post.save();
+
+  res.status(200).json({
+    message: "Comment deleted successfully"
   });
 });
 
@@ -203,7 +265,7 @@ export const viewPost = asyncHandler(async(req, res, next) => {
   }
 
   //Get all post
-  const allPost = await upload.find({}).populate("uploadedBy", "username").populate("comments.user", "username");
+  const allPost = await upload.find(req.query).populate("uploadedBy", "username").populate("comments.user", "username");
 
   if(!allPost) {
     return next(new appError('Post not found', 400));
