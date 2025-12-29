@@ -3,6 +3,8 @@ import User from "../schema/userSchema.js";
 import uploadToCloudinary from "../cloudinary/cloudinaryHelpers.js";
 import { asyncHandler, appError } from "../error-handling/error404.js";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { sendEmail } from "../utils/sendEmail.js";
 
 export const registerUser = asyncHandler(async (req, res, next) => {
   let {username, email, mobile, password} = req.body;
@@ -193,5 +195,73 @@ export const changePassword = asyncHandler(async(req, res, next) => {
 
   res.status(200).json({
     message: "Password changed successfully"
+  });
+});
+
+export const forgotPassword = asyncHandler(async(req, res, next) => {
+  const {email} = req.body;
+
+  //Check if email exists
+  const user = await User.findOne({email});
+
+  if(!user) {
+    return next(new appError('User not found', 404));
+  }
+
+  //Generate reset token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  
+  //Hash crypto before sving to database
+  const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+  user.passwordResetToken = hashedToken;
+  user.passwordResetExpires = Date.now() + 10 * 60 * 1000 //10min
+
+  await user.save();
+
+  const resetUrl = `http://localhost:3000/social/media/reset-password/${resetToken}`;
+
+  const message = `You forgot you password click the link below to reset your password: \n ${resetUrl}`;
+
+  await sendEmail({
+    email: user.email,
+    subject: "Reset Password",
+    message
+  });
+
+  res.status(200).json({
+    msg: "Reset password link has been sent to your email"
+  });
+});
+
+export const resetPassword = asyncHandler(async(req, res, next) => {
+  const {token} = req.params;
+  const {password} = req.body;
+
+  //Using regular expression to validate for strong password
+  const regex = /^[^\s]+[^A-Za-z0-9\s]{1,3}[\d]+$/;
+  if(!regex.test(password)) {
+    return next(new appError("The password must have one special cahracter at the middle and numbers at the end"), 400);
+  }
+  //Hash token from the url
+  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() }
+  });
+
+  if(!user) {
+    return next(new appError("Token is invalid or has expired", 401))
+  }
+
+  user.password = password;
+
+  user.passwordResetToken = null;
+  user.passwordResetExpires = null;
+
+  await user.save();
+  res.status(200).json({
+    message: "Password reset successfully"
   });
 });

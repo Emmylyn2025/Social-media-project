@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import router from "./Routes/router.js";
 import {appError} from "./error-handling/error404.js";
 import cookieParser from "cookie-parser";
+import cors from "cors";
+import helment from "helmet"
 dotenv.config();
 
 //Connect to database
@@ -16,26 +18,28 @@ mongoose.connect(process.env.dataBaseConn).then(() => {
 const app = express();
 
 //Middlewares
+app.use(helment({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
+app.use(cors({
+  credentials: true
+}));
 app.use(express.json());
 app.use(cookieParser());
 app.use('/social/media', router);
 
-//Error handling middleware
+//Route not found middleware
 app.use((req, res, next) => {
-  res.status(404).json({
-    message: "Route not found"
-  });
+  next(new appError(`Can't find ${req.originalUrl} on the server`, 404));
 });
-
-
-//Error middleware
-app.use(appError);
 
 //Global error handler
 app.use((err, req, res, next) => {
-  console.log(err);
-  const statusCode = err.statusCode || 500;
-  res.status(statusCode).json({
+  err.status = err.status || 'error';
+  err.statusCode = err.statusCode || 500;
+  res.status(err.statusCode).json({
+    status: err.status,
     message: err.message
   });
 })
